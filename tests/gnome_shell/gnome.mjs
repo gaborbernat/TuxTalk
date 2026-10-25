@@ -17,6 +17,9 @@ export const shell = {
                             // (methods: name -> its in-args' types)
     statusArea: {},
     clipboard: null,
+    uiGroup: [],            // actors added above the windows
+    exported: new Map(),    // object path -> exported D-Bus object
+    ownedNames: new Map(),  // id -> bus name owned now
 };
 
 for (const level of ['error', 'warn']) {
@@ -52,6 +55,11 @@ class Signals {
 export const GLib = {
     PRIORITY_DEFAULT: 0,
     SOURCE_REMOVE: false,
+    SOURCE_CONTINUE: true,
+    get_monotonic_time: () => Math.round(performance.now() * 1000),
+    source_remove(id) {
+        GLib.Source.remove(id);
+    },
     timeout_add(_priority, _ms, callback) {
         shell.timeouts.push({id: ++lastId, callback});
         return lastId;
@@ -75,7 +83,14 @@ class Actor extends Signals {
     }
 }
 
+class DrawingArea extends Actor {
+    destroy() {
+        shell.uiGroup = shell.uiGroup.filter(actor => actor !== this);
+    }
+}
+
 export const St = {
+    DrawingArea,
     Icon: Actor,
     ClipboardType: {CLIPBOARD: 0},
     Clipboard: {
@@ -93,7 +108,35 @@ export const Meta = {
 
 export const Shell = {ActionMode: {NONE: 0, ALL: 0xffff}};
 
+// cairo, GJS's built-in module: only its constants; nothing draws in these tests.
+export const Cairo = {
+    FontSlant: {NORMAL: 0},
+    FontWeight: {BOLD: 1},
+    Operator: {CLEAR: 0, OVER: 2},
+    RadialGradient: class {},
+};
+
 export const Gio = {
+    BusNameOwnerFlags: {NONE: 0},
+    bus_own_name_on_connection(_connection, name) {
+        shell.ownedNames.set(++lastId, name);
+        return lastId;
+    },
+    bus_unown_name(id) {
+        if (!shell.ownedNames.delete(id))
+            throw new Error(`No bus name owned with id ${id}`);
+    },
+    DBusExportedObject: {
+        wrapJSObject: (_xml, object) => ({
+            export(_connection, path) {
+                shell.exported.set(path, object);
+                this.path = path;
+            },
+            unexport() {
+                shell.exported.delete(this.path);
+            },
+        }),
+    },
     DBusProxyFlags: {DO_NOT_AUTO_START: 1, DO_NOT_LOAD_PROPERTIES: 2},
     BusNameWatcherFlags: {NONE: 0},
     DBusError: {UNKNOWN_METHOD: 'UnknownMethod'},
@@ -149,6 +192,10 @@ export function notify(title, body) {
         throw new Error(`A notification titled only "TuxTalk": ${body}`);
     shell.notifications.push([title, body]);
 }
+
+export const layoutManager = {
+    uiGroup: {add_child: actor => shell.uiGroup.push(actor)},
+};
 
 export const panel = {
     addToStatusArea(role, button) {

@@ -583,3 +583,16 @@ def test_args_are_read_in_any_attribute_order_and_default_to_in():
         t.report(t.shell.proxySetups.at(-1).methods.Mixed);
     """)
     assert types == ["s", "u"]
+
+
+def test_turning_the_extension_off_takes_its_indicator_off_the_bus():
+    """A disabled extension still holding the indicator's name would make the
+    service send it frames that nothing draws, instead of using the X11 window."""
+    held, _logs = run("""
+        const {extension} = await t.enable();
+        const held = [[...t.shell.ownedNames.values()], t.shell.uiGroup.length];
+        extension.disable();
+        held.push([...t.shell.ownedNames.values()], t.shell.uiGroup.length);
+        t.report(held);
+    """)
+    assert held == [["io.github.ronb1964.TalkType.Indicator"], 1, [], 0]

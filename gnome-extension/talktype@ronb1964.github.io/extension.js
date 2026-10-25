@@ -16,6 +16,8 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import {ShellIndicator} from './shellIndicator.js';
+
 // What the extension calls of TuxTalk's D-Bus interface (the tray has more).
 const TuxTalkIface = `
 <node>
@@ -744,6 +746,7 @@ export default class TuxTalkExtension extends Extension {
     enable() {
         this._indicator = new TuxTalkIndicator();
         Main.panel.addToStatusArea('talktype', this._indicator);
+        this._shellIndicator = new ShellIndicator();
     }
 
     disable() {
@@ -751,5 +754,7 @@ export default class TuxTalkExtension extends Extension {
             this._indicator.destroy();
             this._indicator = null;
         }
+        this._shellIndicator?.destroy();
+        this._shellIndicator = null;
     }
 }
