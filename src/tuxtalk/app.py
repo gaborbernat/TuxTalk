@@ -29,7 +29,7 @@ from .config import load_config, Settings, load_custom_commands
 # LIVE_APPLIED_KEYS without pulling each name in separately.
 from . import config as config_module
 from .logger import setup_logger, redact_text
-from .recording_indicator import RecordingIndicator
+from .shell_indicator import create_recording_indicator
 from .undo import detect_undo_command, calculate_undo_length
 from . import virtual_keyboard
 import threading
@@ -5824,7 +5824,7 @@ def main():
         # Initialize recording indicator if enabled
         if cfg.recording_indicator:
             try:
-                recording_indicator = RecordingIndicator(
+                recording_indicator = create_recording_indicator(
                     position=cfg.indicator_position,
                     offset_x=cfg.indicator_offset_x,
                     offset_y=cfg.indicator_offset_y,

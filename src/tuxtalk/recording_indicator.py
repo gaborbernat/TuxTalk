@@ -136,6 +136,12 @@ def _monitor_rect_at(x, y):
     return Rect(g.x, g.y, g.width, g.height)
 
 
+def desktop_accent_rgb():
+    """The desktop theme's accent color, or a green fallback. GTK thread only."""
+    ok, rgba = Gtk.Label().get_style_context().lookup_color("theme_selected_bg_color")
+    return (rgba.red, rgba.green, rgba.blue) if ok else (0.30, 0.72, 0.42)
+
+
 def window_type():
     """A popup on COSMIC, an ordinary window elsewhere.
 
@@ -411,14 +417,7 @@ class RecordingIndicator(Gtk.Window):
         self.spectrum = bands
 
     def _accent_rgb(self):
-        """The desktop theme's accent color, or a green fallback."""
-        try:
-            ok, rgba = Gtk.Label().get_style_context().lookup_color("theme_selected_bg_color")
-            if ok:
-                return (rgba.red, rgba.green, rgba.blue)
-        except Exception:
-            pass
-        return (0.30, 0.72, 0.42)
+        return desktop_accent_rgb()
 
     def _resolved_colors(self):
         """(rgb, orb palette) for the current color settings, cached: the
