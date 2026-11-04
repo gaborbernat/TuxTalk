@@ -189,6 +189,36 @@ def test_a_microphone_stuck_closing_restarts_the_service_instead_of_freezing(
     assert rs.state.is_recording is False
 
 
+def test_a_microphone_sending_no_sound_says_so_instead_of_freezing(monkeypatch,
+                                                                quiet_recording):
+    """Its stream's start never returned: the service waited ten minutes, and
+    every press queued behind it. It gives up in seconds, releases the
+    keyboard and says what's wrong, without a second try that would wait on
+    the stuck stream."""
+    opened, seen = [], []
+
+    class SilentStream:
+        def __init__(self, **kwargs):
+            opened.append(kwargs)
+
+    def never_answers(stream):
+        raise mic_stream.NotAnswering("no audio within 3s")
+
+    monkeypatch.setattr(recording.sd, "InputStream", SilentStream)
+    monkeypatch.setattr(mic_stream, "start", never_answers)
+    monkeypatch.setattr("tuxtalk.notify.notify", lambda title, msg: seen.append(title))
+    devices = [keyboard()]
+    keyboard_grab.grab_all_devices(devices)
+
+    started = recording.start_recording(beeps_on=False, notify_on=True, input_device_idx=0)
+
+    assert started is None
+    assert len(opened) == 1
+    assert seen == ["Microphone isn't answering"]
+    assert not devices[0].is_grabbed
+    assert rs.state.is_recording is False
+
+
 def test_failed_recording_start_clears_the_recording_flag(monkeypatch, quiet_recording):
     """A stuck is_recording flag makes every later press take the wrong branch."""
     monkeypatch.setattr(recording.sd, "InputStream", lambda *a, **k: (_ for _ in ()).throw(Exception("no mic")))
