@@ -47,6 +47,7 @@ class Stream:
 def quick(monkeypatch):
     monkeypatch.setattr(mic_stream, "STOP_TIMEOUT_S", 0.1)
     monkeypatch.setattr(mic_stream, "_closing", set())
+    monkeypatch.setattr(mic_stream, "_stuck", set())
 
 
 def test_a_stream_is_stopped_then_closed():
@@ -92,6 +93,23 @@ def test_a_stream_that_never_stops_is_given_up_on_and_kept(caplog):
     assert mic_stream._closing == {stream}, "kept, so nothing closes it again"
     assert any("didn't stop within" in r.getMessage() for r in caplog.records)
     stream.release.set()
+
+
+def test_a_stream_given_up_on_counts_as_stuck_until_it_closes():
+    """Opening a stream while one is still in PortAudio waits on it, so the
+    service asks first; a stream that closes late stops counting."""
+    stream = Stream(stop="hangs")
+    assert mic_stream.close(stream) is False
+    assert mic_stream.stuck() is True
+    stream.release.set()
+    assert stream.closed.wait(1)
+    time.sleep(0.05)
+    assert mic_stream.stuck() is False
+
+
+def test_a_stream_closing_in_time_never_counts_as_stuck():
+    mic_stream.close(Stream())
+    assert mic_stream.stuck() is False
 
 
 def test_without_waiting_it_returns_at_once_and_still_says_when_a_stream_hangs(caplog):

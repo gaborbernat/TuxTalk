@@ -309,6 +309,18 @@ def open_input_stream(rec, device_idx) -> None:
     rec.stream.start()
 
 
+def _restart_for_stuck_microphone(notify_on: bool) -> None:
+    """Ask the tray for a fresh service instead of opening the microphone.
+    A stream whose close never returned holds PortAudio's lock, so opening
+    another would block this thread, and every hotkey with it, for good;
+    only a new process frees the lock."""
+    logger.error("A microphone stream is stuck closing; asking the tray to restart the service")
+    keyboard_grab.release_all()
+    if notify_on:
+        notify_module.notify("Audio system stopped answering", "Restarting the dictation service.")
+    tray_link.restart_service()
+
+
 def start_recording(beeps_on: bool, notify_on: bool, input_device_idx,
                     from_toggle: bool = False, edit_mode: bool = False,
                     held_send: bool = False):
@@ -323,6 +335,9 @@ def start_recording(beeps_on: bool, notify_on: bool, input_device_idx,
     keyboard is grabbed just before this is called, so without that release a
     microphone error would leave the user unable to type anywhere at all.
     """
+    if mic_stream.stuck():
+        _restart_for_stuck_microphone(notify_on)
+        return None
     # Pressing a hotkey while a send counts down holds it: a tap leaves the
     # text unsent, a hold dictates more onto it. Counted before the
     # microphone opens, so a send set up meanwhile waits for this recording.

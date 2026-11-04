@@ -24,6 +24,9 @@ EXIT_WAIT_S = 0.5
 # each). _closed is notified as each one is closed.
 _closing = set()
 _closed = threading.Condition()
+# Those of _closing whose stop() or close() outlasted STOP_TIMEOUT_S. One of
+# them still in PortAudio holds its lock, so opening another stream blocks.
+_stuck = set()
 # PortAudio's error for stopping a stream that was opened and never started
 # (its start failed): there was nothing to stop.
 _NEVER_STARTED = sd._lib.paStreamIsStopped
@@ -75,6 +78,9 @@ def close(stream, wait=True):
     closer.start()
     closer.join(STOP_TIMEOUT_S)
     if closer.is_alive():
+        with _closed:
+            if stream in _closing:
+                _stuck.add(stream)
         logger.error(f"The microphone stream didn't stop within {STOP_TIMEOUT_S:g}s "
                      "(the audio system stopped answering); carrying on without it")
         return False
@@ -96,7 +102,15 @@ def _stop_and_close(stream):
             logger.warning(f"Could not close the microphone stream: {e}")
         with _closed:
             _closing.discard(stream)
+            _stuck.discard(stream)
             _closed.notify_all()
+
+
+def stuck():
+    """Whether a stream that outlasted STOP_TIMEOUT_S is still closing, so
+    opening another would hang until it does, which may be never."""
+    with _closed:
+        return bool(_stuck)
 
 
 def leave_portaudio_running():

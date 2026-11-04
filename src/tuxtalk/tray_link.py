@@ -46,6 +46,11 @@ def notify_hotkey_pressed(key_name: str):
     call("NotifyHotkeyPressed", key_name, what="notify tray of hotkey press")
 
 
+def restart_service():
+    """Ask the tray to restart the dictation service."""
+    call("RestartService", what="ask the tray to restart the service")
+
+
 def show_voice_commands():
     """Tell the tray to show the voice commands quick reference."""
     call("ShowVoiceCommands", what="show voice commands via D-Bus")
